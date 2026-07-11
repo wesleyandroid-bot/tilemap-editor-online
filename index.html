@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Tile鍦板浘缂栬緫鍣ㄥ湪绾跨増</title>
+  <link rel="stylesheet" href="css/tile-editor.css">
+</head>
+<body>
+
+  <!-- Save indicator -->
+  <div id="save-indicator">宸蹭繚瀛?/div>
+
+  <!-- Toolbar -->
+  <div id="toolbar">
+    <h1>
+      TileMap Editor Online
+      <span id="version-display" title="鐐瑰嚮鏌ョ湅鐗堟湰淇℃伅">v1.0.1</span>
+    </h1>
+    <button onclick="loadTileset()">鍔犺浇绱犳潗</button>
+    <input type="file" id="tileset-input" accept="image/*" class="hidden">
+
+    <label>鏍煎瓙鍍忕礌:</label>
+    <input type="number" id="tile-size" value="32" min="8" max="128">
+
+    <label>鍦板浘鏍煎瓙:</label>
+    <input type="number" id="map-cols" value="20" min="5" max="100">
+    <span>x</span>
+    <input type="number" id="map-rows" value="15" min="5" max="100">
+    <button onclick="resizeMap()">璋冩暣澶у皬</button>
+
+    <span class="toolbar-divider"></span>
+    <button class="success" onclick="exportJSON()">瀵煎嚭鍦板浘鏁版嵁</button>
+    <button onclick="importJSON()">瀵煎叆鍦板浘鏁版嵁</button>
+    <input type="file" id="json-input" accept=".json" class="hidden">
+    <span class="toolbar-divider"></span>
+    <button onclick="saveLocal()">淇濆瓨</button>
+    <button class="danger" onclick="clearMap()">娓呯┖</button>
+  </div>
+
+  <!-- Main layout -->
+  <div id="main">
+    <!-- Left: Tileset -->
+    <div id="tileset-panel">
+      <div id="tileset-resize"></div>
+      <h2>绱犳潗闈㈡澘 (鐐瑰嚮閫夋嫨鐡︾墖)</h2>
+      <div id="tileset-container">
+        <canvas id="tileset-canvas"></canvas>
+        <div id="tileset-info">璇峰厛鍔犺浇鐡︾墖绱犳潗鍥剧墖</div>
+      </div>
+      <div id="selected-tile">
+        <div class="selected-tile-header">宸查€夌摝鐗?/div>
+        <canvas id="preview-canvas" width="64" height="64"></canvas>
+      </div>
+    </div>
+
+    <!-- Center: Map -->
+    <div id="map-panel">
+      <h2>
+        鍦板浘鐢诲竷 (鐐瑰嚮鏀剧疆鐡︾墖)
+        <span id="current-layer-display">褰撳墠鍥惧眰锛?</span>
+      </h2>
+      <div id="map-container">
+        <div id="map-center">
+          <canvas id="map-canvas"></canvas>
+        </div>
+      </div>
+      <div id="bottom-bar">
+        <button onclick="undo()" title="Ctrl+Z">鈫?鎾ら攢</button>
+        <button onclick="redo()" title="Ctrl+Y">鈫?閲嶅仛</button>
+        <span class="toolbar-divider"></span>
+        <button onclick="zoomOut()" title="缂╁皬">鉃?/button>
+        <span id="zoom-level">100%</span>
+        <button onclick="zoomIn()" title="鏀惧ぇ">鉃?/button>
+        <button onclick="zoomReset()" title="閲嶇疆">鈫?/button>
+        <span class="toolbar-divider"></span>
+        <button onclick="showIsometricPreview()" title="45掳绛夎窛瑙嗚棰勮">鈼?45掳棰勮</button>
+      </div>
+    </div>
+
+    <!-- Right: Layers -->
+    <div id="right-panel">
+      <div id="right-resize"></div>
+      <h2>鍥惧眰</h2>
+      <div id="layers-list"></div>
+      <button id="add-layer-btn" onclick="addLayer()">+ 娣诲姞鍥惧眰</button>
+
+      <div id="properties">
+        <label>鍥惧眰鍚嶇О</label>
+        <input type="text" id="layer-name" placeholder="Layer 1">
+
+        <label>涓嶉€忔槑搴?/label>
+        <input type="range" id="layer-opacity" min="0" max="100" value="100">
+
+        <label>鏄剧ず缃戞牸</label>
+        <select id="show-grid">
+          <option value="1">鏄剧ず</option>
+          <option value="0">闅愯棌</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div id="statusbar">
+    <span id="status-pos">浣嶇疆: -</span>
+    <span id="status-tile">鐡︾墖: -</span>
+    <span id="status-layer">鍥惧眰: Layer 1</span>
+    <span id="status-size">鍦板浘: 20x15</span>
+    <span id="statusbar-hint">Ctrl+Z 鎾ら攢 | Ctrl+Y 閲嶅仛 | Ctrl+S 淇濆瓨 | Delete 姗＄毊鎿?| 涓敭/Alt+鎷栧姩 绉诲姩鐢诲竷</span>
+  </div>
+
+  <!-- Version modal -->
+  <div id="version-modal">
+    <div class="modal-box">
+      <h3>鍏充簬 TileMap Editor</h3>
+      <div class="version-info">
+        <div>鐗堟湰: <span id="modal-version"></span></div>
+        <div>鍙戝竷鏃ユ湡: <span id="modal-release"></span></div>
+        <div>浣滆€? <span id="modal-author"></span></div>
+        <div>閭: <span id="modal-email"></span></div>
+      </div>
+      <button class="modal-close-btn" onclick="closeVersionModal()">鍏抽棴</button>
+    </div>
+  </div>
+
+  <!-- Export modal -->
+  <div id="export-modal">
+    <div id="export-content">
+      <h3>瀵煎嚭鍦板浘鏁版嵁</h3>
+      <textarea id="json-output" readonly></textarea>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="copyJSON()">澶嶅埗</button>
+        <button class="btn-success" onclick="downloadJSON()">涓嬭浇</button>
+        <button class="btn-secondary" onclick="closeExport()">鍏抽棴</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Isometric preview modal -->
+  <div id="iso-modal">
+    <div id="iso-content">
+      <h3>45掳 绛夎窛瑙嗚棰勮</h3>
+      <div id="iso-canvas-container">
+        <canvas id="iso-canvas"></canvas>
+      </div>
+      <div id="iso-controls">
+        <label>
+          <input type="checkbox" id="iso-grid" checked> 鏄剧ず缃戞牸
+        </label>
+      </div>
+      <div class="btn-row">
+        <button class="btn-success" onclick="downloadIsometricPNG()">瀵煎嚭PNG</button>
+        <button class="btn-secondary" onclick="closeIsometricPreview()">鍏抽棴</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/tile-editor.js"></script>
+</body>
+</html>
